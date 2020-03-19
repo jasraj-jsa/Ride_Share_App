@@ -1,0 +1,27 @@
+version: '3'
+
+services:
+  users_service:
+    image: users:latest
+    ports:
+      - "8080:3000"
+    build: Users
+    links:
+      - user_db
+    restart: always
+  rides_service:
+    image: rides:latest
+    links:
+      - ride_db
+    ports:
+      - "8000:3000"
+    build: Rides
+    restart: always
+  user_db:
+      image: mongo:latest
+      ports:
+        - "27017:27017"
+  ride_db:
+      image: mongo:latest
+      ports:
+        - "27018:27017"

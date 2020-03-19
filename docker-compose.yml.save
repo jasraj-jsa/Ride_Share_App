@@ -1,0 +1,22 @@
+version: '3'
+
+services:
+  users:
+    image: users:latest
+    ports:
+      - "8080:8080"
+    links:
+      - user_db
+  rides:
+    image: rides:latest
+    links:
+      - rides
+    ports:
+      - "8000:8000"
+  user_db:
+      image: mongo:latest
+      ports:
+        - "27018:27017"
+      volumes:
+        - ./data:/data/cloud
+   
