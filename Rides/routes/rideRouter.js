@@ -3,15 +3,18 @@ var router = express.Router();
 const bodyParser = require("body-parser");
 var request = require("request");
 router.use(bodyParser.json());
-var u = "http://localhost:3000/api/v1/db/"
+var u = "http://localhost:3000/"
 var Count = require("../models/count");
 var Rides = require("../models/rides");
+
 router.route("/")
     .all((req, res, next) => {
         Count.find({ countId: 1 }).then((countee) => {
             if (countee.length == 0) {
-                console.log("No counter\n");
-                next();
+                Count.create({ countId: 1, counter: 1 })
+                    .then((count) => {
+                        console.log("Success!!\n");
+                    });
             }
             else {
                 Count.findByIdAndUpdate(countee[0]._id, { $inc: { counter: 1 } }, { 'new': true }, (err, r) => {
@@ -29,13 +32,73 @@ router.route("/")
             next();
         }
         else {
-            request.post({ url: u + "write", body: { operation: "add", table: "rides", created_by: req.body.created_by, source: req.body.source, destination: req.body.destination, timestamp: req.body.timestamp }, json: true }, (err, Response, body) => {
-                if (err)
-                    console.log(err);
-                res.statusCode = Response.statusCode;
-                res.send(body);
+            var cb = req.body.created_by;
+            var time = req.body.timestamp;
+            var s = req.body.source;
+            var d = req.body.destination;
+            if (cb.length == 0 || time.length == 0 || s.length == 0 || d.length == 0) {
+                res.statusCode = 400;
+                res.send();
                 next();
-            })
+            }
+            else {
+                request.get({ url: "http://CC-1969773605.us-east-1.elb.amazonaws.com/api/v1/users" }, (err, Response, body) => {
+                    if (err)
+                        console.log(err);
+                    //res.statusCode = Response.statusCode;
+                    //res.send(body);
+                    //next();
+                    if (Response.statusCode == 204) {
+                        res.statusCode = 400;
+                        res.send();
+                        next();
+                    }
+                    else {
+                        var user_array = JSON.parse(body);
+                        //console.log(user_array);
+                        var flag = 0;
+                        for (var i = 0; i < user_array.length; i++) {
+                            if (user_array[i] == cb) {
+                                flag = 1;
+                                break;
+                            }
+                        }
+                        if (flag == 0) {
+                            res.statusCode = 400;
+                            res.send();
+                            next();
+                        }
+                        else {
+                            Rides.find({}).then((rides) => {
+                                fs.createReadStream('AreaNameEnum.csv')
+                                    .pipe(csv(['Area No']))
+                                    .on('data', (data) => {
+                                        results.push(data[0]);
+                                    })
+                                    .on('end', () => {
+                                        if ((results.includes(s) && results.includes(d))) {
+                                            request.post({ url: u + "write", body: { operation: "add", table: "rides", created_by: req.body.created_by, source: req.body.source, destination: req.body.destination, timestamp: req.body.timestamp, rides: rides }, json: true }, (err, Response, body) => {
+                                                if (err)
+                                                    console.log(err);
+                                                res.statusCode = Response.statusCode;
+                                                res.send(body);
+                                                next();
+                                            })
+                                        }
+                                        else {
+                                            res.statusCode = 400;
+                                            res.send();
+                                            next();
+                                        }
+                                    });
+
+                            })
+                        }
+                    }
+                });
+            }
+
+
         }
     })
     .get((req, res, next) => {
@@ -65,11 +128,13 @@ router.route("/")
         next();
     })
 router.route("/count")
-.all((req, res, next) => {
+    .all((req, res, next) => {
         Count.find({ countId: 1 }).then((countee) => {
             if (countee.length == 0) {
-                console.log("No counter\n");
-                next();
+                Count.create({ countId: 1, counter: 1 })
+                    .then((count) => {
+                        console.log("Success!!\n");
+                    });
             }
             else {
                 Count.findByIdAndUpdate(countee[0]._id, { $inc: { counter: 1 } }, { 'new': true }, (err, r) => {
@@ -79,8 +144,8 @@ router.route("/count")
                 });
             }
         });
-    })    
-.get((req, res, next) => {
+    })
+    .get((req, res, next) => {
         Rides.countDocuments({}, (err, c) => {
             var a = Array();
             a.push(c);
@@ -89,17 +154,17 @@ router.route("/count")
             next();
         });
     })
-    .post((req,res,next) => {
+    .post((req, res, next) => {
         res.statusCode = 405;
         res.send();
         next();
     })
-    .put((req,res,next) => {
+    .put((req, res, next) => {
         res.statusCode = 405;
         res.send();
         next();
     })
-    .delete((req,res,next) => {
+    .delete((req, res, next) => {
         res.statusCode = 405;
         res.send();
         next();
@@ -108,8 +173,10 @@ router.route("/:rideId")
     .all((req, res, next) => {
         Count.find({ countId: 1 }).then((countee) => {
             if (countee.length == 0) {
-                console.log("No counter\n");
-                next();
+                Count.create({ countId: 1, counter: 1 })
+                    .then((count) => {
+                        console.log("Success!!\n");
+                    });
             }
             else {
                 Count.findByIdAndUpdate(countee[0]._id, { $inc: { counter: 1 } }, { 'new': true }, (err, r) => {
@@ -124,36 +191,90 @@ router.route("/:rideId")
         request.post({ url: u + "read", body: { operation: "display", table: "rides", rideId: req.params.rideId }, json: true }, (err, Response, body) => {
             if (err)
                 console.log(err);
-	    console.log(Response);
+            console.log(Response);
             res.statusCode = Response.statusCode;
             res.send(body);
             next();
         })
     })
     .post((req, res, next) => {
-        if (req.body.length == 0) {
+        var id = req.body.rideId;
+        if (id.length == 0) {
             res.statusCode = 400;
             res.send();
             next();
         }
         else {
-            request.post({ url: u + "write", body: { operation: "join", table: "rides", rideId: req.params.rideId, username: req.body.username }, json: true }, (err, Response, body) => {
+            request.get({ url: "http://CC-1969773605.us-east-1.elb.amazonaws.com/api/v1/users" }, (err, Response, body) => {
                 if (err)
                     console.log(err);
-                res.statusCode = Response.statusCode;
-                res.send(body);
-                next();
-            })
+                if (Response.statusCode == 204) {
+                    res.statusCode = 400;
+                    res.send();
+                    next();
+                }
+                else {
+                    var user_array = JSON.parse(body);
+                    var flag = 0;
+                    for (var i = 0; i < user_array.length; i++) {
+                        if (user_array[i] == cb) {
+                            flag = 1;
+                            break;
+                        }
+                    }
+                    if (flag == 0) {
+                        res.statusCode = 400;
+                        res.send();
+                        next();
+                    }
+                    else {
+                        Rides.find({ rideId: id }).then((rides) => {
+                            if (rides.length == 0) {
+                                res.statusCode = 400;
+                                res.send();
+                                next();
+                            }
+                            else {
+                                request.post({ url: u + "write", body: { operation: "join", table: "rides", rideId: req.params.rideId, username: req.body.username, rides: rides }, json: true }, (err, Response, body) => {
+                                    if (err)
+                                        console.log(err);
+                                    res.statusCode = Response.statusCode;
+                                    res.send(body);
+                                    next();
+                                })
+                            }
+                        });
+                    }
+                }
+            });
+
         }
     })
     .delete((req, res, next) => {
-        request.post({ url: u + "read", body: { operation: "delete", table: "rides", rideId: req.params.rideId }, json: true }, (err, Response, body) => {
-            if (err)
-                console.log(err);
-            res.statusCode = Response.statusCode;
-            res.send(body);
+        if (requestmessage.rideId.length == 0) {
+            res.statusCode = 400;
+            res.send();
             next();
-        })
+        }
+        else {
+            Rides.find({ rideId: requestmessage.rideId }).then(rides => {
+                if (rides.length == 0) {
+                    res.statusCode = 400;
+                    res.send();
+                    next();
+                }
+                else {
+                    request.post({ url: u + "write", body: { operation: "delete", table: "rides", rideId: req.params.rideId }, json: true }, (err, Response, body) => {
+                        if (err)
+                            console.log(err);
+                        res.statusCode = Response.statusCode;
+                        res.send(body);
+                        next();
+                    });
+                }
+            });
+
+        }
     })
     .put((req, res, next) => {
         res.statusCode = 405;
