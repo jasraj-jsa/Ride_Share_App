@@ -23,18 +23,21 @@ function listChildren(client, path) {
 
 client.once("connected", function () {
   console.log("Connected to ZooKeeper.");
+  client.create("/puppy/puppy", Buffer.from("data"), (err, path) => {
+    console.log("Node is created!");
+  });
   client.getData(
     "/puppy/puppy",
     function (event) {
       console.log("HERE1");
-      console.log("Got event: %s.", event);
+      console.log("Got event: %s", event.getName());
     },
     function (error, data, stat) {
       if (error) {
         console.log(error.stack);
         return;
       }
-
+      console.log(stat);
       console.log("Got data: %s", data.toString("utf8"));
     }
   );

@@ -1,0 +1,42 @@
+version: "3"
+services:
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    ports:
+      - 15672:15672
+      - 5672:5672
+
+  zoo:
+    image: zookeeper
+    restart: always
+    hostname: zoo
+    ports:
+      - 2181:2181
+      - 3888:3888
+      - 8080:8080
+
+  orchestrator_service:
+    container_name: orchestrator1
+    restart: always
+    build: orchestrator
+    ports:
+      - "80:3000"
+    depends_on:
+      - rabbitmq
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+  db_service:
+    image: mongo:latest
+    ports:
+      - "27018:27017"
+
+  persistentdb:
+    container_name: pdb
+    restart: always
+    build: persistentdb
+    depends_on:
+      - rabbitmq
+      - orchestrator_service
+    volumes:
+      - ./appdata:/app/pdb

@@ -12,11 +12,34 @@ var client = zookeeper.createClient(
   "localhost:2181"
 ); /* Client for creating znodes */
 
-mongoose.connect("mongodb://localhost:27017/master").then((db) => {
+mongoose.connect("mongodb://db_service:27017/master").then((db) => {
   console.log("\t\t\tCorrectly connected to the server!!");
 });
+/* Watch function for master election */
+// var master_change = (event) => {
+//   if(!event)
+//   return;
+//   console.log("Got event " + event);
+//   if(event.getType() == 3){
 
-amqp.connect("amqp://localhost", function (error0, connection) {
+//   }
+// };
+
+/* Once connection to client is made */
+// client
+//   .once("connected")
+//   .then(() => {
+//     console.log("Zookeeper is connected!");
+//     return getId();
+//   })
+//   .then((id) => {
+//     if (!id) {
+//       console.log("First containerize this!");
+//       process.exit(1);
+//     }
+//   });
+
+amqp.connect("amqp://rabbitmq", function (error0, connection) {
   if (error0) {
     throw error0;
   }
@@ -74,6 +97,15 @@ amqp.connect("amqp://localhost", function (error0, connection) {
 var processWriteRequests = (requestmessage, callback) => {
   var res = { statusCode: "", send: "" };
   var operation = requestmessage.operation;
+  if (operation == "clear") {
+    Users.remove({}, function (err) {
+      Rides.remove({}, function (err) {
+        console.log("DB Cleared!");
+        res.send = "";
+        return callback(res);
+      });
+    });
+  }
   var table = requestmessage.table;
   if (operation == "add") {
     var uname = requestmessage.username;
@@ -90,55 +122,57 @@ var processWriteRequests = (requestmessage, callback) => {
       var time = requestmessage.timestamp;
       var s = requestmessage.source;
       var d = requestmessage.destination;
-      var rides = requestmessage.rides;
-      var Id;
-      var us = [];
-      if (rides.length == 0) {
-        Id = 123;
-      } else {
-        var ma = 0;
-        for (var key in rides) {
-          if (rides[key].rideId > ma) {
-            ma = rides[key].rideId;
+      Rides.find({}).then((rides) => {
+        var Id;
+        var us = [];
+        if (rides.length == 0) {
+          Id = 123;
+        } else {
+          var ma = 0;
+          for (var key in rides) {
+            if (rides[key].rideId > ma) {
+              ma = rides[key].rideId;
+            }
           }
+          Id = ma + 1;
         }
-        Id = ma + 1;
-      }
-      us.push(cb);
-      Rides.create({
-        created_by: cb,
-        timestamp: time,
-        source: s,
-        destination: d,
-        rideId: Id,
-        users: us,
-      }).then((ride) => {
-        res.statusCode = "201";
-        res.send = "";
-        return callback(res);
+        us.push(cb);
+        Rides.create({
+          created_by: cb,
+          timestamp: time,
+          source: s,
+          destination: d,
+          rideId: Id,
+          users: us,
+        }).then((ride) => {
+          res.statusCode = "201";
+          res.send = "";
+          return callback(res);
+        });
       });
     }
   } else if (operation == "join") {
     var id = requestmessage.rideId;
-    var rides = requestmessage.rides;
-
-    if (rides[0].users.includes(req.body.username)) {
-      res.statusCode = "201";
-      res.send = "";
-      return callback(res);
-    } else {
-      Rides.findByIdAndUpdate(
-        rides[0]._id,
-        { $push: { users: req.body.username } },
-        { new: true },
-        (err, r) => {
-          if (err) console.log(err);
-          res.statusCode = "201";
-          res.send = "";
-          return callback(res);
-        }
-      );
-    }
+    var uname = requestmessage.username;
+    Rides.find({ rideId: id }).then((rides) => {
+      if (rides[0].users.includes(uname)) {
+        res.statusCode = "201";
+        res.send = "";
+        return callback(res);
+      } else {
+        Rides.findByIdAndUpdate(
+          rides[0]._id,
+          { $push: { users: uname } },
+          { new: true },
+          (err, r) => {
+            if (err) console.log(err);
+            res.statusCode = "201";
+            res.send = "";
+            return callback(res);
+          }
+        );
+      }
+    });
   } else {
     if (table.toLowerCase() == "users") {
       Users.remove({ username: req.body.username }).then(() => {
