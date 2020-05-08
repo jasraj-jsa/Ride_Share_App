@@ -2,19 +2,23 @@
 
 var amqp = require("amqplib/callback_api");
 var mongoose = require("mongoose");
-const csv = require("csv-parser");
-const fs = require("fs");
 const Users = require("./models/users");
 const Rides = require("./models/rides");
 
-var zookeeper = require("node-zookeeper-client"); /* Connection to zkserver */
-var client = zookeeper.createClient(
-  "localhost:2181"
-); /* Client for creating znodes */
+// var zookeeper = require("node-zookeeper-client"); /* Connection to zkserver */
+// var client = zookeeper.createClient(
+//   "localhost:2181"
+// ); /* Client for creating znodes */
 
-mongoose.connect("mongodb://db_service:27017/master").then((db) => {
+mongoose.connect("mongodb://localhost:27017/master").then((db) => {
   console.log("\t\t\tCorrectly connected to the server!!");
 });
+
+/* Connection after docker */
+// mongoose.connect("mongodb://db_service:27017/master").then((db) => {
+//   console.log("\t\t\tCorrectly connected to the server!!");
+// });
+
 /* Watch function for master election */
 // var master_change = (event) => {
 //   if(!event)
@@ -39,7 +43,10 @@ mongoose.connect("mongodb://db_service:27017/master").then((db) => {
 //     }
 //   });
 
-amqp.connect("amqp://rabbitmq", function (error0, connection) {
+/* Connection after docker */
+// amqp.connect("amqp://rabbitmq"
+
+amqp.connect("amqp://localhost", function (error0, connection) {
   if (error0) {
     throw error0;
   }
@@ -62,10 +69,10 @@ amqp.connect("amqp://rabbitmq", function (error0, connection) {
         }
         console.log(" [*] Waiting for any writeQ requests!");
         /*Binding with routing_key=writeQ */
-        channel.bindQueue(q.queue, exchange, "writeQ");
+        channel.bindQueue("writeQ", exchange, "writeQ");
         /*Recieving the write requests from orchestrator */
         channel.consume(
-          q.queue,
+          "writeQ",
           function (msg) {
             console.log(
               " [x] %s: '%s'",
@@ -105,90 +112,93 @@ var processWriteRequests = (requestmessage, callback) => {
         return callback(res);
       });
     });
-  }
-  var table = requestmessage.table;
-  if (operation == "add") {
-    var uname = requestmessage.username;
-    var pwd = requestmessage.password;
+  } else {
+    var table = requestmessage.table;
 
-    if (table.toLowerCase() == "users") {
-      Users.create({ username: uname, password: pwd }).then((user) => {
-        res.statusCode = "201";
-        res.send = "";
-        return callback(res);
-      });
-    } else {
-      var cb = requestmessage.created_by;
-      var time = requestmessage.timestamp;
-      var s = requestmessage.source;
-      var d = requestmessage.destination;
-      Rides.find({}).then((rides) => {
-        var Id;
-        var us = [];
-        if (rides.length == 0) {
-          Id = 123;
-        } else {
-          var ma = 0;
-          for (var key in rides) {
-            if (rides[key].rideId > ma) {
-              ma = rides[key].rideId;
-            }
-          }
-          Id = ma + 1;
-        }
-        us.push(cb);
-        Rides.create({
-          created_by: cb,
-          timestamp: time,
-          source: s,
-          destination: d,
-          rideId: Id,
-          users: us,
-        }).then((ride) => {
+    if (operation == "add") {
+      var uname = requestmessage.username;
+      var pwd = requestmessage.password;
+
+      if (table.toLowerCase() == "users") {
+        Users.create({ username: uname, password: pwd }).then((user) => {
           res.statusCode = "201";
           res.send = "";
           return callback(res);
         });
-      });
-    }
-  } else if (operation == "join") {
-    var id = requestmessage.rideId;
-    var uname = requestmessage.username;
-    Rides.find({ rideId: id }).then((rides) => {
-      if (rides[0].users.includes(uname)) {
-        res.statusCode = "201";
-        res.send = "";
-        return callback(res);
       } else {
-        Rides.findByIdAndUpdate(
-          rides[0]._id,
-          { $push: { users: uname } },
-          { new: true },
-          (err, r) => {
-            if (err) console.log(err);
+        var cb = requestmessage.created_by;
+        var time = requestmessage.timestamp;
+        var s = requestmessage.source;
+        var d = requestmessage.destination;
+        Rides.find({}).then((rides) => {
+          var Id;
+          var us = [];
+          if (rides.length == 0) {
+            Id = 123;
+          } else {
+            var ma = 0;
+            for (var key in rides) {
+              if (rides[key].rideId > ma) {
+                ma = rides[key].rideId;
+              }
+            }
+            Id = ma + 1;
+          }
+          us.push(cb);
+          Rides.create({
+            created_by: cb,
+            timestamp: time,
+            source: s,
+            destination: d,
+            rideId: Id,
+            users: us,
+          }).then((ride) => {
             res.statusCode = "201";
             res.send = "";
             return callback(res);
-          }
-        );
+          });
+        });
       }
-    });
-  } else {
-    if (table.toLowerCase() == "users") {
-      Users.remove({ username: req.body.username }).then(() => {
-        res.statusCode = "200";
-        return callback(res);
-      });
-    } else {
-      if (requestmessage.rideId.length == 0) {
-        res.statusCode = "400";
-        return callback(res);
-      } else {
-        Rides.remove({ rideId: requestmessage.rideId }).then(() => {
-          res.statusCode = "200";
+    } else if (operation == "join") {
+      var id = requestmessage.rideId;
+      var uname = requestmessage.username;
+      Rides.find({ rideId: id }).then((rides) => {
+        if (rides[0].users.includes(uname)) {
+          res.statusCode = "201";
           res.send = "";
           return callback(res);
+        } else {
+          Rides.findByIdAndUpdate(
+            rides[0]._id,
+            { $push: { users: uname } },
+            { new: true },
+            (err, r) => {
+              if (err) console.log(err);
+              res.statusCode = "201";
+              res.send = "";
+              return callback(res);
+            }
+          );
+        }
+      });
+    } else {
+      if (table.toLowerCase() == "users") {
+        var uname = requestmessage.username;
+        Users.remove({ username: uname }).then(() => {
+          res.statusCode = "200";
+          return callback(res);
         });
+      } else {
+        if (requestmessage.rideId.length == 0) {
+          res.statusCode = "400";
+          return callback(res);
+        } else {
+          Rides.remove({ rideId: requestmessage.rideId }).then(() => {
+            res.statusCode = "200";
+            res.send = "";
+            return callback(res);
+          });
+        }
       }
     }
   }

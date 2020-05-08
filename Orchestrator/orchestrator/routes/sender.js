@@ -4,9 +4,28 @@ const bodyParser = require("body-parser");
 router.use(bodyParser.json());
 var amqp = require("amqplib/callback_api");
 var Docker = require("dockerode");
+const Counts = require("../models/count");
 var docker = new Docker();
 router.route("/read").post((req, res, next) => {
   connectToServer("readQ", req.body, (responseMsg) => {
+    /* Maintaing a counter variable in orchestrator db and incrementing by 1 on every subsequent read request */
+    Counts.find({ id: 1 }).then((count) => {
+      if (count.length == 0) {
+        Counts.create({ id: 1, counter: 1 }).then((c) => {
+          console.log("Counter created!!");
+        });
+      } else {
+        Counts.findByIdAndUpdate(
+          { id: 1 },
+          { $inc: { counter: 1 } },
+          { new: true },
+          (err, Res) => {
+            if (err) console.log(err);
+          }
+        );
+      }
+    });
+
     console.log("Message from readQ  ");
     console.log(responseMsg);
     res.statusCode = parseInt(responseMsg.statusCode);
@@ -22,10 +41,8 @@ router.route("/write").post((req, res, next) => {
   res.send();
 });
 
-
-
 var connectToServer = (requestFor, requestMsg, callback) => {
-  amqp.connect("amqp://rabbitmq", function (error0, connection) {
+  amqp.connect("amqp://localhost", function (error0, connection) {
     if (error0) {
       throw error0;
     }
@@ -38,9 +55,8 @@ var connectToServer = (requestFor, requestMsg, callback) => {
       channel.assertExchange(exchange, "direct", {
         durable: false,
       });
-      channel.prefetch(
-        1
-      ); /*If a worker is busy it will send the message to some other worker. 1message/worker at a time*/
+      channel.prefetch(1);
+      /*If a worker is busy it will send the message to some other worker. 1message/worker at a time*/
 
       if (requestFor == "readQ") {
         /*Creating responseQ */
@@ -64,9 +80,10 @@ var connectToServer = (requestFor, requestMsg, callback) => {
           "responseQ",
           function (msg) {
             console.log("RESPONSEQ response " + msg.content.toString());
+            msg1 = msg.content;
             if (msg.properties.correlationId == correlationId) {
               connection.close();
-              return callback(JSON.parse(msg.content));
+              return callback(JSON.parse(msg1));
               //console.log(' [.] Got %s', msg.content.toString());
             }
           },
@@ -82,7 +99,8 @@ var connectToServer = (requestFor, requestMsg, callback) => {
           "writeQ",
           Buffer.from(JSON.stringify(requestMsg))
         );
-        connection.close();
+
+        //connection.close();
         return callback("DONE!");
       } else {
         /* If no request has been made to readQ or writeQ then exit */

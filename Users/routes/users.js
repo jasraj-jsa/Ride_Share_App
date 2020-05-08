@@ -50,17 +50,18 @@ router
         res.send();
         next();
       } else {
-        request.get(
+        request.post(
           {
             url: u + "read",
-            body: {
-              table: "users",
-              operation: "display",
-            },
+            body: { operation: "display", table: "users" },
+            json: true,
           },
           (err, Response, body) => {
-            var users = JSON.parse(body);
-            if (users.includes(req.body.username)) {
+            if (err) console.log(err);
+            if (Response.statusCode == 204) {
+              var users = "";
+            } else var users = body;
+            if (users.length != 0 && users.includes(req.body.username)) {
               res.statusCode = 400;
               res.send();
               next();
@@ -103,46 +104,51 @@ router
 
 router
   .route("/:username")
-  .all((req, res, next) => {
-    Count.find({ countId: 1 }).then((countee) => {
-      if (countee.length == 0) {
-        Count.create({ countId: 1, counter: 1 }).then((count) => {
-          console.log("Success!!\n");
-        });
-      } else {
-        Count.findByIdAndUpdate(
-          countee[0]._id,
-          { $inc: { counter: 1 } },
-          { new: true },
-          (err, r) => {
-            if (err) console.log(err);
-            next();
-          }
-        );
-      }
-    });
-  })
+  // .all((req, res, next) => {
+  //   Count.find({ countId: 1 }).then((countee) => {
+  //     if (countee.length == 0) {
+  //       Count.create({ countId: 1, counter: 1 }).then((count) => {
+  //         console.log("Success!!\n");
+  //       });
+  //     } else {
+  //       Count.findByIdAndUpdate(
+  //         countee[0]._id,
+  //         { $inc: { counter: 1 } },
+  //         { new: true },
+  //         (err, r) => {
+  //           if (err) console.log(err);
+  //           next();
+  //         }
+  //       );
+  //     }
+  //   });
+  // })
   .delete((req, res, next) => {
-    var uname = req.body.username;
+    var uname = req.params.username;
     if (uname.length == 0) {
       res.statusCode = 400;
       res.send();
       next();
     } else {
-      request.get(
+      request.post(
         {
           url: u + "read",
           body: {
             table: "users",
             operation: "display",
           },
+          json: true,
         },
         (err, Response, body) => {
-          var users = JSON.parse(body);
-          if (!users.includes(req.params.username)) {
+          if (err) console.log(err);
+          if (Response.statusCode == 204) {
+            var users = "";
+          } else var users = body;
+          if (users.length != 0 && !users.includes(uname)) {
             res.statusCode = 400;
             res.send();
             next();
+            //Username entered is not unique or pwd not in SHA 1 format
           } else {
             request.post(
               {
@@ -150,7 +156,7 @@ router
                 body: {
                   operation: "delete",
                   table: "users",
-                  username: req.params.username,
+                  username: uname,
                 },
                 json: true,
               },

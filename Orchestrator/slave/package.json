@@ -12,6 +12,7 @@
     "amqplib": "^0.5.5",
     "csv-parser": "^2.3.2",
     "fs": "0.0.1-security",
-    "mongoose": "^5.9.10"
+    "mongoose": "^5.9.10",
+    "nodemon": "^2.0.3"
   }
 }

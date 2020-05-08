@@ -14,6 +14,7 @@
     "docker-container-id": "^1.0.1",
     "fs": "0.0.1-security",
     "mongoose": "^5.9.10",
-    "node-zookeeper-client": "^1.1.0"
+    "node-zookeeper-client": "^1.1.0",
+    "nodemon": "^2.0.3"
   }
 }

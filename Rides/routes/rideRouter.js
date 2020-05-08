@@ -6,27 +6,45 @@ router.use(bodyParser.json());
 var u = "http://localhost:3000/";
 var Count = require("../models/count");
 
+router.route("/clear").post((req, res, next) => {
+  request.post(
+    {
+      url: "http://localhost:3000/write",
+      body: {
+        operation: "clear",
+      },
+      json: true,
+    },
+    (err, Response, body) => {
+      if (err) console.log(err);
+      res.statusCode = Response.statusCode;
+      res.send();
+      next();
+    }
+  );
+});
+
 router
   .route("/")
-  .all((req, res, next) => {
-    Count.find({ countId: 1 }).then((countee) => {
-      if (countee.length == 0) {
-        Count.create({ countId: 1, counter: 1 }).then((count) => {
-          console.log("Success!!\n");
-        });
-      } else {
-        Count.findByIdAndUpdate(
-          countee[0]._id,
-          { $inc: { counter: 1 } },
-          { new: true },
-          (err, r) => {
-            if (err) console.log(err);
-            next();
-          }
-        );
-      }
-    });
-  })
+  // .all((req, res, next) => {
+  //   Count.find({ countId: 1 }).then((countee) => {
+  //     if (countee.length == 0) {
+  //       Count.create({ countId: 1, counter: 1 }).then((count) => {
+  //         console.log("Success!!\n");
+  //       });
+  //     } else {
+  //       Count.findByIdAndUpdate(
+  //         countee[0]._id,
+  //         { $inc: { counter: 1 } },
+  //         { new: true },
+  //         (err, r) => {
+  //           if (err) console.log(err);
+  //           next();
+  //         }
+  //       );
+  //     }
+  //   });
+  // })
   .post((req, res, next) => {
     if (req.body.length == 0) {
       res.statusCode = 400;
@@ -49,8 +67,8 @@ router
       } else {
         request.get(
           {
-            url:
-              "http://CC-1969773605.us-east-1.elb.amazonaws.com/api/v1/users",
+            url: "http://localhost:8080/api/v1/users",
+            // "http://CC-1969773605.us-east-1.elb.amazonaws.com/api/v1/users",
           },
           (err, Response, body) => {
             if (err) console.log(err);
@@ -76,7 +94,12 @@ router
                 res.send();
                 next();
               } else {
-                if (req.body.source < 1 || req.body.destination > 198) {
+                if (
+                  req.body.source < 1 ||
+                  req.body.source > 198 ||
+                  req.body.destination < 1 ||
+                  req.body.destination > 198
+                ) {
                   res.statusCode = 400;
                   res.send();
                   next();
@@ -147,25 +170,25 @@ router
   });
 router
   .route("/count")
-  .all((req, res, next) => {
-    Count.find({ countId: 1 }).then((countee) => {
-      if (countee.length == 0) {
-        Count.create({ countId: 1, counter: 1 }).then((count) => {
-          console.log("Success!!\n");
-        });
-      } else {
-        Count.findByIdAndUpdate(
-          countee[0]._id,
-          { $inc: { counter: 1 } },
-          { new: true },
-          (err, r) => {
-            if (err) console.log(err);
-            next();
-          }
-        );
-      }
-    });
-  })
+  // .all((req, res, next) => {
+  //   Count.find({ countId: 1 }).then((countee) => {
+  //     if (countee.length == 0) {
+  //       Count.create({ countId: 1, counter: 1 }).then((count) => {
+  //         console.log("Success!!\n");
+  //       });
+  //     } else {
+  //       Count.findByIdAndUpdate(
+  //         countee[0]._id,
+  //         { $inc: { counter: 1 } },
+  //         { new: true },
+  //         (err, r) => {
+  //           if (err) console.log(err);
+  //           next();
+  //         }
+  //       );
+  //     }
+  //   });
+  // })
   .get((req, res, next) => {
     request.post(
       {
@@ -174,6 +197,7 @@ router
           operation: "count",
           table: "rides",
         },
+        json: true
       },
       (err, Response, body) => {
         if (err) console.log(err);
@@ -200,25 +224,25 @@ router
   });
 router
   .route("/:rideId")
-  .all((req, res, next) => {
-    Count.find({ countId: 1 }).then((countee) => {
-      if (countee.length == 0) {
-        Count.create({ countId: 1, counter: 1 }).then((count) => {
-          console.log("Success!!\n");
-        });
-      } else {
-        Count.findByIdAndUpdate(
-          countee[0]._id,
-          { $inc: { counter: 1 } },
-          { new: true },
-          (err, r) => {
-            if (err) console.log(err);
-            next();
-          }
-        );
-      }
-    });
-  })
+  // .all((req, res, next) => {
+  //   Count.find({ countId: 1 }).then((countee) => {
+  //     if (countee.length == 0) {
+  //       Count.create({ countId: 1, counter: 1 }).then((count) => {
+  //         console.log("Success!!\n");
+  //       });
+  //     } else {
+  //       Count.findByIdAndUpdate(
+  //         countee[0]._id,
+  //         { $inc: { counter: 1 } },
+  //         { new: true },
+  //         (err, r) => {
+  //           if (err) console.log(err);
+  //           next();
+  //         }
+  //       );
+  //     }
+  //   });
+  // })
   .get((req, res, next) => {
     request.post(
       {
@@ -232,7 +256,6 @@ router
       },
       (err, Response, body) => {
         if (err) console.log(err);
-        console.log(Response);
         res.statusCode = Response.statusCode;
         res.send(body);
         next();
@@ -240,15 +263,17 @@ router
     );
   })
   .post((req, res, next) => {
-    var id = req.body.rideId;
-    if (id.length == 0) {
+    var id = req.params.rideId;
+    var cb = req.body.username;
+    if (id.length == 0 || cb.length == 0) {
       res.statusCode = 400;
       res.send();
       next();
     } else {
       request.get(
         {
-          url: "http://CC-1969773605.us-east-1.elb.amazonaws.com/api/v1/users",
+          url: "http://localhost:8080/api/v1/users",
+          // "http://CC-1969773605.us-east-1.elb.amazonaws.com/api/v1/users",
         },
         (err, Response, body) => {
           if (err) console.log(err);
@@ -270,9 +295,9 @@ router
               res.send();
               next();
             } else {
-              request.get(
+              request.post(
                 {
-                  url: u + "ride",
+                  url: u + "read",
                   body: {
                     operation: "display",
                     table: "rides",
@@ -295,8 +320,8 @@ router
                         body: {
                           operation: "join",
                           table: "rides",
-                          rideId: req.params.rideId,
-                          username: req.body.username,
+                          rideId: id,
+                          username: cb,
                         },
                         json: true,
                       },
@@ -322,9 +347,9 @@ router
       res.send();
       next();
     } else {
-      request.get(
+      request.post(
         {
-          url: u + "ride",
+          url: u + "read",
           body: {
             operation: "display",
             table: "rides",
@@ -351,7 +376,7 @@ router
               },
               (err, Response, body) => {
                 if (err) console.log(err);
-                res.statusCode = Response.statusCode;
+                res.statusCode = 200;
                 res.send(body);
                 next();
               }
