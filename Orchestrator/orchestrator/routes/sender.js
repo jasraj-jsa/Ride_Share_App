@@ -6,17 +6,33 @@ var amqp = require("amqplib/callback_api");
 var Docker = require("dockerode");
 const Counts = require("../models/count");
 var docker = new Docker();
+
+var checkCounter = () => {
+  Counts.find({ cid: 1 }).then((count) => {
+    if (count.length == 0) {
+      console.log(0);
+      return 0;
+    } else {
+      console.log(count[0].counter);
+      count[0].counter = 0;
+      count[0].save();
+      return count[0].counter;
+    }
+  });
+};
+setInterval(checkCounter, 120000);
+
 router.route("/read").post((req, res, next) => {
   connectToServer("readQ", req.body, (responseMsg) => {
     /* Maintaing a counter variable in orchestrator db and incrementing by 1 on every subsequent read request */
-    Counts.find({ id: 1 }).then((count) => {
+    Counts.find({ cid: 1 }).then((count) => {
       if (count.length == 0) {
-        Counts.create({ id: 1, counter: 1 }).then((c) => {
+        Counts.create({ cid: 1, counter: 1 }).then((c) => {
           console.log("Counter created!!");
         });
       } else {
         Counts.findByIdAndUpdate(
-          { id: 1 },
+          { _id: count[0]._id },
           { $inc: { counter: 1 } },
           { new: true },
           (err, Res) => {
@@ -80,7 +96,7 @@ var connectToServer = (requestFor, requestMsg, callback) => {
           "responseQ",
           function (msg) {
             console.log("RESPONSEQ response " + msg.content.toString());
-            msg1 = msg.content;
+            var msg1 = msg.content;
             if (msg.properties.correlationId == correlationId) {
               connection.close();
               return callback(JSON.parse(msg1));

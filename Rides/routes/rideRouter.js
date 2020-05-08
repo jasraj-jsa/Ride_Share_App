@@ -4,7 +4,7 @@ const bodyParser = require("body-parser");
 var request = require("request");
 router.use(bodyParser.json());
 var u = "http://localhost:3000/";
-var Count = require("../models/count");
+//var Count = require("../models/count");
 
 router.route("/clear").post((req, res, next) => {
   request.post(
@@ -19,7 +19,6 @@ router.route("/clear").post((req, res, next) => {
       if (err) console.log(err);
       res.statusCode = Response.statusCode;
       res.send();
-      next();
     }
   );
 });
@@ -78,7 +77,6 @@ router
             if (Response.statusCode == 204) {
               res.statusCode = 400;
               res.send();
-              next();
             } else {
               var user_array = JSON.parse(body);
               //console.log(user_array);
@@ -92,7 +90,6 @@ router
               if (flag == 0) {
                 res.statusCode = 400;
                 res.send();
-                next();
               } else {
                 if (
                   req.body.source < 1 ||
@@ -153,7 +150,6 @@ router
           if (err) console.log(err);
           res.statusCode = Response.statusCode;
           res.send(body);
-          next();
         }
       );
     }
@@ -168,6 +164,7 @@ router
     res.send({});
     next();
   });
+
 router
   .route("/count")
   // .all((req, res, next) => {
@@ -197,30 +194,29 @@ router
           operation: "count",
           table: "rides",
         },
-        json: true
+        json: true,
       },
       (err, Response, body) => {
         if (err) console.log(err);
         res.statusCode = Response.statusCode;
         res.send(body);
-        next();
       }
     );
   })
   .post((req, res, next) => {
     res.statusCode = 405;
     res.send();
-    next();
+    return next();
   })
   .put((req, res, next) => {
     res.statusCode = 405;
     res.send();
-    next();
+    return next();
   })
   .delete((req, res, next) => {
     res.statusCode = 405;
     res.send();
-    next();
+    return next();
   });
 router
   .route("/:rideId")
