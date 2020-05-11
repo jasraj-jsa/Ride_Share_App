@@ -8,7 +8,7 @@ const Users = require("./models/users");
 const Rides = require("./models/rides");
 var protocol = 1;
 
-mongoose.connect("mongodb://localhost:27017/slave").then((db) => {
+mongoose.connect("mongodb://mongo:27017/slave").then((db) => {
   console.log("\t\t\tCorrectly connected to the server!!");
 });
 
@@ -20,76 +20,85 @@ mongoose.connect("mongodb://localhost:27017/slave").then((db) => {
 // amqp.connect("amqp://rabbitmq"
 
 if (protocol == 1) {
-  amqp.connect("amqp://localhost", function (error0, connection) {
+  setTimeout(()=> {amqp.connect("amqp://rabbitmq", function (error0, connection) {
     if (error0) {
       throw error0;
-    }
-    connection.createChannel(function (error1, channel) {
-      if (error1) {
+   }
+   connection.createChannel(function (error1, channel) {
+     if (error1) {
         throw error1;
-      }
-      var exchange = "orchestrate";
-      channel.assertExchange(exchange, "direct", {
-        durable: false,
-      });
-      channel.prefetch(1);
-      /*ReadQ Declaration*/
-      channel.assertQueue(
-        "readQ",
-        {},
-        function (error2, q) {
-          if (error2) {
-            throw error2;
-          }
-          console.log(" [x] Awaiting requests for readQ");
-          channel.bindQueue("readQ", exchange, "readQ"); /*ReadQ bind*/
-          channel.consume(
-            "readQ",
-            function reply(msg) {
-              /*Consume from readQ, query it and send to responseQ*/
-              console.log(JSON.parse(msg.content));
-              processReadRequests(JSON.parse(msg.content), (response) => {
-                channel.publish(
-                  exchange,
-                  "responseQ",
-                  Buffer.from(JSON.stringify(response)),
-                  { correlationId: msg.properties.correlationId }
-                );
-              });
-            },
-            { noAck: true }
-          ); /*Sending to responseQ with appropriate correlationId*/
-        },
-        { durable: true }
-      );
-      channel.assertQueue(
-        "syncQ",
-        {},
-        function (error2, q) {
-          if (error2) {
-            throw error2;
-          }
-          console.log(" [*] Waiting for any syncQ changes!");
-          channel.bindQueue(q.queue, exchange, "syncQ");
-          channel.consume(
-            q.queue,
-            function (msg) {
-              processSyncQRequests(JSON.parse(msg.content), (response) => {
-                console.log("Response message of syncQ");
-                console.log(response);
-              });
-            },
-            {
-              noAck: true,
-            }
-          );
-        },
-        { durable: true }
-      );
+     }
+    //  var exchange = "orchestrate";
+     channel.assertExchange("read_exchange", "direct", {
+       durable: false,
+     });
+     channel.assertExchange("response_exchange", "direct", {
+      durable: false,
     });
-  });
+    channel.assertExchange("sync_exchange", "direct", {
+      durable: false,
+    });
+     channel.prefetch(1);
+     /*ReadQ Declaration*/
+     channel.assertQueue(
+       "readQ",
+       {},
+       function (error2, q) {
+         if (error2) {
+           throw error2;
+         }
+         console.log(" [x] Awaiting requests for readQ");
+         channel.bindQueue("readQ", "read_exchange", "readQ"); /*ReadQ bind*/
+         channel.consume(
+           "readQ",
+           function reply(msg) {
+             /*Consume from readQ, query it and send to responseQ*/
+             //console.log(msg);
+             console.log("Publishing to responseQ");
+             processReadRequests(JSON.parse(msg.content), (response) => {
+               //console.log(response);
+               channel.publish(
+                 "response_exchange",
+                 "responseQ",
+                 Buffer.from(JSON.stringify(response)),
+                 { correlationId: msg.properties.correlationId }
+               );
+               channel.ack(msg);
+             });
+           },
+         ); /*Sending to responseQ with appropriate correlationId*/
+       },
+       { durable: false }
+     );
+     channel.assertQueue(
+       "syncQ",
+       {},
+       function (error2, q) {
+         if (error2) {
+           throw error2;
+         }
+         console.log(" [*] Waiting for any syncQ changes!");
+         channel.bindQueue(q.queue, "sync_exchange", "syncQ");
+         channel.consume(
+           q.queue,
+           function (msg) {
+             processSyncQRequests(JSON.parse(msg.content), (response) => {
+               console.log("Response message of syncQ");
+               console.log(response);
+             });
+           },
+           {
+             noAck: true,
+           }
+         );
+       },
+       { durable: false }
+     );
+   });
+ })},30000);
+  
 } else {
-  amqp.connect("amqp://localhost", function (error0, connection) {
+  amqp.connect("amqp://test:test@rabbitmq", function (error0, connection) {
     if (error0) {
       throw error0;
     }

@@ -10,7 +10,7 @@ const Rides = require("./models/rides");
 //   "localhost:2181"
 // ); /* Client for creating znodes */
 
-mongoose.connect("mongodb://localhost:27017/master").then((db) => {
+mongoose.connect("mongodb://mongo:27017/master").then((db) => {
   console.log("\t\t\tCorrectly connected to the server!!");
 });
 
@@ -46,16 +46,20 @@ mongoose.connect("mongodb://localhost:27017/master").then((db) => {
 /* Connection after docker */
 // amqp.connect("amqp://rabbitmq"
 
-amqp.connect("amqp://localhost", function (error0, connection) {
+
+setTimeout(() => {amqp.connect("amqp://rabbitmq", function (error0, connection) {
   if (error0) {
     throw error0;
   }
   connection.createChannel(function (error1, channel) {
-    if (error1) {
-      throw error1;
-    }
-    var exchange = "orchestrate";
-    channel.assertExchange(exchange, "direct", {
+    // if (error1) {
+    //   throw error1;
+    //  }
+    // var exchange = "orchestrate";
+    channel.assertExchange("write_exchange", "direct", {
+      durable: false,
+    });
+    channel.assertExchange("sync_exchange", "direct", {
       durable: false,
     });
     channel.prefetch(1);
@@ -69,7 +73,7 @@ amqp.connect("amqp://localhost", function (error0, connection) {
         }
         console.log(" [*] Waiting for any writeQ requests!");
         /*Binding with routing_key=writeQ */
-        channel.bindQueue("writeQ", exchange, "writeQ");
+        channel.bindQueue("writeQ", "write_exchange", "writeQ");
         /*Recieving the write requests from orchestrator */
         channel.consume(
           "writeQ",
@@ -83,7 +87,7 @@ amqp.connect("amqp://localhost", function (error0, connection) {
               console.log("Request for writeQ");
               console.log(response);
               channel.publish(
-                exchange,
+                "sync_exchange",
                 "syncQ",
                 Buffer.from(JSON.stringify(JSON.parse(msg.content)))
               );
@@ -98,7 +102,8 @@ amqp.connect("amqp://localhost", function (error0, connection) {
       { durable: true }
     );
   });
-});
+})},30000);
+
 
 /* Processing of requests by db/write */
 var processWriteRequests = (requestmessage, callback) => {

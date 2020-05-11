@@ -7,7 +7,7 @@ var mongoose = require("mongoose");
 var orchestratorRouter = require("./routes/sender");
 
 var app = express();
-mongoose.connect("mongodb://localhost:27017/orchestrator").then((db) => {
+mongoose.connect("mongodb://mongo:27017/orchestrator").then((db) => {
   console.log("\t\t\tCorrectly connected to the server!!");
 });
 // view engine setup

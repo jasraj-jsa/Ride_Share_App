@@ -7,36 +7,43 @@ services:
       - 15672:15672
       - 5672:5672
 
-  zoo:
-    image: zookeeper
-    restart: always
-    hostname: zoo
-    ports:
-      - 2181:2181
-      - 3888:3888
-      - 8080:8080
 
-  orchestrator_service:
-    container_name: orchestrator1
-    restart: always
+  orchestrator:
+    image: orchestrator:latest
+    container_name: orchestrator
     build: orchestrator
+    restart: always
     ports:
       - "80:3000"
     depends_on:
       - rabbitmq
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-  db_service:
+    links:
+      - mongo
+
+  master:
+    image: master:latest
+    container_name: master
+    build: master
+    depends_on:
+      - orchestrator
+      - rabbitmq
+    links:
+      - mongo
+    
+  slave:
+    image: slave:latest
+    container_name: slave
+    build: slave
+    depends_on:
+      - orchestrator
+      - rabbitmq
+    links:
+      - mongo
+  
+  mongo:
     image: mongo:latest
     ports:
-      - "27018:27017"
+      - "27017:27017"
 
-  persistentdb:
-    container_name: pdb
-    restart: always
-    build: persistentdb
-    depends_on:
-      - rabbitmq
-      - orchestrator_service
-    volumes:
-      - ./appdata:/app/pdb

@@ -3,7 +3,7 @@ var router = express.Router();
 const bodyParser = require("body-parser");
 var request = require("request");
 router.use(bodyParser.json());
-var u = "http://localhost:3000/";
+var u = "http://localhost/";
 
 router
   .route("/")

@@ -1,0 +1,58 @@
+var url = require("url"),
+  mongoose = require("mongodb").MongoClient;
+
+// var sourceUrl = "mongodb://localhost:27017/master",
+//   targetUrl = "mongodb://localhost:27017/slave",
+//   collectionName = "rides";
+
+function copyCollection(source, target, collectionName, cb) {
+  source.collection(collectionName, function (err1, sourceCollection) {
+    if (err1) {
+      console.error("error opening source collection");
+      cb(err1);
+    } else {
+      target.collection(collectionName, function (err2, targetCollection) {
+        if (err2) {
+          console.error("error opening target collection");
+          cb(err2);
+        } else {
+          // Note: if this fails it's because I was lazy and used toArray
+          // try .each() and insert one doc at a time? (do a count() first so you know it's done)
+          sourceCollection.find().toArray(function (err3, results) {
+            if (err3) {
+              console.error("error finding source results");
+              cb(err3);
+            } else {
+              targetCollection.insert(results, { safe: true }, function (
+                err4,
+                docs
+              ) {
+                if (err4) {
+                  console.error("error inserting target results");
+                  cb(err4);
+                } else {
+                  cb(null, docs.length + " docs inserted");
+                }
+              });
+            }
+          });
+        }
+      });
+    }
+  });
+}
+var newSlave = () => {
+  mongoose.connect("mongodb://localhost:27017/master").then((dbm) => {
+    console.log("\t\tMAster");
+    mongoose.connect("mongodb://localhost:27017/slave").then((dbs) => {
+      console.log("\t\tSlave");
+      copyCollection(dbm, dbs, "users", (err, docs) => {
+        if (err) console.log(err);
+        copyCollection(dbm, dbs, "rides", (err1, docs1) => {
+          if (err1) console.log(err1);
+          console.log("Copied to new slave node");
+        });
+      });
+    });
+  });
+};
